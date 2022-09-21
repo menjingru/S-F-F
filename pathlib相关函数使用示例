@@ -1,0 +1,128 @@
+"""
+功能：pathlib相关函数使用示例
+"""
+
+dic = {
+    'img_path': ['/home/data/a.jpg', '/home/data/b.png', ...],
+    'img_name': ['1.jpg', '2.jpg', '3.jpg', ...],
+    'img_stem': ['abcd', 'defr', 'fghj', ...],
+    'img_ext': ['jpg', 'png', 'JPG', 'PNG', ...]
+}
+
+# patthlib
+from pathlib import Path
+
+# 当前py文件绝对路径
+path = Path(__file__)
+print(path)
+
+# 当前py文件所在文件夹绝对路径
+path1 = Path().resolve()
+print(path1)  # /home/menjingru/YSD_linux
+
+# 文件全名  (最后一个)
+path_name = path.name
+print(path_name)
+
+# 文件名   （outwith后缀）
+path_stem = path.stem
+print(path_stem)
+
+# 文件后缀
+path_suffix = path.suffix
+print(path_suffix)
+
+# 父级路径
+path_parent = path.parent
+print(path_parent)
+
+# 父级路径和当前文件夹的关系：相似
+
+# 路径连接
+path_try = path_parent / path_name
+print(path_try)
+path2 = Path(path_parent,path_name)
+print(path2)  # /home/menjingru/YSD_linux/json_YSD.py
+
+# 文件夹是否存在
+is_exist = path2.exists()
+print(is_exist)
+
+# 文件夹创建
+path3 = path_parent / "test/txt"   # 请注意，产生的是文件夹
+# if not path3.exists():
+#     path3.mkdir()
+# path3.mkdir(exist_ok=True)  # 存在则忽略
+path3.mkdir(exist_ok=True,parents=True)  # 多级路径，存在则忽略 √
+print(path3.exists())
+
+# 删除空文件夹
+print(path3.exists())
+path3.rmdir()
+print(path3.exists())
+
+# 判断文件还是文件夹
+print(path2.is_dir())
+print(path2.is_file())
+# 不存在也非文件
+print((path_parent/'abc.py').is_file())
+
+# 遍历
+list = [path_parent.iterdir()]
+print(list)
+# 用for使用
+for i in path_parent.iterdir():
+    print(i)
+
+# 条件查询
+list1 = [i for i in path_parent.glob('*')]
+print(list1)
+# 用for使用
+for i in [i for i in path_parent.glob('*')]:
+    print(i)
+
+# 查询文件/文件夹信息
+msg = path1.stat()
+print(path1)
+print(msg)
+print("size",path1.stat().st_size)
+print("create time",path1.stat().st_ctime)
+print("modify time",path1.stat().st_mtime)
+
+
+# 输出文件夹2的所有图片信息输出为json
+path = '/home/menjingru/dataset/xml_trans/2'
+path = Path(path)
+img_path = [str(i) for i in path.glob('*.jpg'or'*.JPG'or'*.png'or'*.PNG')]
+img_name = [i.name for i in path.glob('*.jpg'or'*.JPG'or'*.png'or'*.PNG')]
+img_stem = [i.stem for i in path.glob('*.jpg'or'*.JPG'or'*.png'or'*.PNG')]
+img_ext = [i.suffix for i in path.glob('*.jpg'or'*.JPG'or'*.png'or'*.PNG')]
+
+dic = {
+    'img_path': img_path,
+    'img_name': img_name,
+    'img_stem': img_stem,
+    'img_ext': img_ext
+}
+# print(dic)
+
+import json
+
+# 转json
+j = json.dumps(dic)
+
+# 写入
+# f2 = open('./new_json.json', 'w')
+# f2.write(j)
+# f2.close()
+
+with open('./new_json.json', 'w') as f:
+    f.write(j)
+
+
+
+
+# 读取
+f = open('./new_json.json', 'r').read()
+jj = json.loads(f)
+print(jj)
