@@ -1,0 +1,75 @@
+# -- coding: utf-8 --
+'''
+功能：将单个dicom文件转换为nii.gz文件
+'''
+from pathlib import Path
+import os
+import os.path as osp
+import time
+import SimpleITK as sitk
+from batchgenerators.utilities.file_and_folder_operations import *
+import shutil
+
+from nibabel.dft import pydicom
+from tqdm import tqdm
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+import warnings
+
+warnings.filterwarnings("ignore", module="SimpleITK")
+
+
+def dcm_to_nrrd(dcm_path, nrrd_save_path=None, is_label=False, overwrite=False):
+    """
+    将dicom文件夹转换为nrrd
+    :param dcm_path:'E:\\600_zong\\mjr0\\gjm'
+    :param nrrd_save_path:'E:\\600test\\mjr0\\gjm.nii.gz'
+    :param is_label: 是否是mask，mask保存int8,否则int16
+    :param overwrite: 是否覆盖
+    :return
+    """
+    if nrrd_save_path and os.path.exists(nrrd_save_path) and not overwrite:
+        print("已存在", dcm_path, nrrd_save_path)
+        return
+
+    ts = time.time()
+    if not osp.exists(dcm_path):
+        print('原始数据不存在：' + dcm_path)
+        return
+    series_reader = sitk.ImageSeriesReader()
+    series_ids = series_reader.GetGDCMSeriesIDs(str(dcm_path))  # 序列ID必须唯一
+    print(series_ids)
+    if len(series_ids) != 1:
+        print('dicom序列不唯一,转换失败： ' + dcm_path)
+        return
+    # assert len(series_ids) == 1, 'dicom序列不唯一： ' + dicom_path
+
+    series_file_names = series_reader.GetGDCMSeriesFileNames(dcm_path)
+    series_reader.SetFileNames(series_file_names)
+
+    if is_label:
+        series_reader.SetOutputPixelType(sitk.sitkInt8)
+    else:
+        series_reader.SetOutputPixelType(sitk.sitkInt16)
+
+    image_3d = series_reader.Execute()  # x,y,z
+    image_npy = sitk.GetArrayFromImage(image_3d)  # z,y,x
+    a = image_3d.GetDimension()
+    b = image_3d.GetOrigin()
+    c = image_3d.GetSpacing()
+    d = image_3d.GetSize()
+    e = image_3d.GetPixelID()
+    f = image_3d.GetDirection()
+    # print(image_npy.shape, a, b, c, d, e, f)
+    if nrrd_save_path:
+        sitk.WriteImage(image_3d, nrrd_save_path)
+        # print("Time: {:.2f}".format(time.time() - ts), dcm_path, nrrd_save_path)
+    # return image_3d
+
+
+# 总控
+
+
+path = r'F:\A'
+path_out = path + '_nrrd.nii.gz'
+dcm_to_nrrd(path,path_out)
