@@ -1,0 +1,104 @@
+import numpy as np
+import pydicom
+from PIL import Image
+import os
+import SimpleITK as sitk
+import time
+import ctypes
+from pathlib import Path
+import tqdm
+
+
+def dcm2nii(dcms_path, nii_path):
+    """
+    dicom转nii
+    :param dcms_path: 包含dicom切片的文件夹
+    :param nii_path: nii文件
+    :return:
+    """
+	# 1.构建dicom序列文件阅读器，并执行（即将dicom序列文件“打包整合”）
+    reader = sitk.ImageSeriesReader()
+    dicom_names = reader.GetGDCMSeriesFileNames(dcms_path)
+    reader.SetFileNames(dicom_names)
+    image2 = reader.Execute()
+    #print(image2)
+	# 2.将整合后的数据转为array，并获取dicom文件基本信息
+    image_array = sitk.GetArrayFromImage(image2)  # z, y, x
+    origin = image2.GetOrigin()  # x, y, z
+    spacing = image2.GetSpacing()  # x, y, z
+    direction = image2.GetDirection()  # x, y, z
+	# 3.将array转为img，并保存为.nii.gz
+    image3 = sitk.GetImageFromArray(image_array)
+    image3.SetSpacing(spacing)
+    image3.SetDirection(direction)
+    image3.SetOrigin(origin)
+    sitk.WriteImage(image3, nii_path)
+
+def writeSlices(new_img, out_dir, templete_dir=""):
+    """
+    convert_nifti_to_dicom的工具函数
+    :param new_img:
+    :param out_dir:
+    :param templete_dir:
+    :return:
+    """
+    depth = new_img.GetDepth()
+    spacing = new_img.GetSpacing()
+    space_str = str(spacing[0]) + "\\" + str(spacing[1])
+    temp_name = "templete.dcm"
+    for i in range(depth):
+        if len(templete_dir) > 0:
+            temp_name = templete_dir + "\\IM" + str(i).zfill(3)
+        image_slice = new_img[:, :, i]
+        final_path = os.path.join(out_dir,'IM' + str(i).zfill(4)) + ".dcm"
+        data_slice = sitk.GetArrayFromImage(image_slice)
+        ds = pydicom.dcmread(temp_name)
+        if i == 1:
+            print("type:    ", data_slice.dtype)
+        ds.PixelData = data_slice.astype('int8')
+        if len(templete_dir) == 0:
+            ds.PixelSpacing = space_str
+            ds.SliceThickness = spacing[2]
+            ds.InstanceNumber = int(i)
+            ds.ImagePositionPatient = '\\'.join(map(str,new_img.TransformIndexToPhysicalPoint((0,0,i))))
+        ds.save_as(final_path)
+
+
+def convert_nifti_to_dicom(in_dir, out_dir, templete_dir=""):
+    """
+    nii转dicom
+    :param in_dir: nii文件
+    :param out_dir: 包含dicom切片的文件夹
+    :param templete_dir:
+    :return:
+    """
+    try:
+        new_img = sitk.ReadImage(in_dir)
+    except:
+        temp_file = r"temp.nii.gz"
+        decrypt_nifti(in_dir.encode(), temp_file.encode())
+        new_img = sitk.ReadImage(temp_file)
+        # os.remove(temp_file)
+
+    direction = new_img.GetDirection()
+
+    if direction[4] < 0:
+        sizei = new_img.GetSize()
+        dep = int(sizei[1] / 2)
+        for i in range(dep):
+            tmp = new_img[:, i, :]
+            new_img[:, i, :] = new_img[:, sizei[1] - 1 - i, :]
+            new_img[:, sizei[1] - 1 - i, :] = tmp
+
+    # Write slices to output directory
+    if len(templete_dir) == 0:
+        writeSlices(new_img, out_dir)
+    else:
+        templete_dir_name = "templete_dir"
+        writeSlices(new_img, out_dir, templete_dir_name)
+
+
+
+# nii_path = r"/home/deepliver2/Disksdb/menjingru/codes/HCC_Cls/try/z_other/nii_file/1_V.nii.gz"
+# dicom_out_path = r"/home/deepliver2/Disksdb/menjingru/codes/HCC_Cls/try/z_other/dcm_file"
+# convert_nifti_to_dicom(nii_path, dicom_out_path)
